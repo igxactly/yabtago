@@ -4,10 +4,22 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 )
+
+type MinMaxMean struct {
+	Min  map[string]uint64  `json:"min"`
+	Max  map[string]uint64  `json:"max"`
+	Mean map[string]float64 `json:"mean"`
+}
+
+type BlktraceResult struct {
+	R MinMaxMean
+	W MinMaxMean
+}
 
 type BlktraceRecord struct {
 	// Magic                        uint32
@@ -19,7 +31,7 @@ type BlktraceRecord struct {
 	Pdu_data string
 }
 
-func (r *BlktraceRecord) to_s() string {
+func (r *BlktraceRecord) ToString() string {
 	return fmt.Sprintf("BlktraceRecord:%d %d %d %d 0x%08x %d %d %d %d %d %s",
 		r.Seq, r.Time, r.Cpu, r.Pid, r.Action,
 		r.Dev, r.Sector, r.Bytes, r.Err, r.Pdu_len, r.Pdu_data)
@@ -163,7 +175,7 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 	}
 }
 
-func (s *BlktraceStatistics) Get_averages() map[string]float64 {
+func (s *BlktraceStatistics) GetAvg() map[string]float64 {
 	var avg_drv_q, avg_c_drv float64
 
 	avgs := make(map[string]float64)
@@ -181,20 +193,25 @@ func (s *BlktraceStatistics) Get_averages() map[string]float64 {
 	return avgs
 }
 
-//TODO: rewrite to_s()
+func (s *BlktraceStatistics) ToString() string {
+	cnt := s.num_batches
+	var avg_drv_q, avg_c_drv float64
 
-// func (s *BlktraceStatistics) to_s() {
-//    cnt = @num_batches
-//    avg_drv_q = @totals['DRV-Q'].to_f / cnt
-//    avg_c_drv = @totals['C-DRV'].to_f / cnt
-//
-//    if @num_batches > 0
-//        return "BlktraceStatistics: cnt=%u\n  avg DRV-Q=%fus C-DRV=%fus\n  min DRV-Q=%fus C-DRV=%fus\n  max DRV-Q=%fus C-DRV=%fus" %
-//            ([cnt] + [avg_drv_q, avg_c_drv, @minimums['DRV-Q'], @minimums['C-DRV'], @maximums['DRV-Q'], @maximums['C-DRV']].map{|x| (x / 1000)})
-//    else
-//        return "BlktraceStatistics: cnt=%u\n  Nothing is collected" % [cnt]
-//    end
-//}
+	if cnt > 0 {
+		avg_drv_q = float64(s.totals["DRV-Q"]) / float64(cnt)
+		avg_c_drv = float64(s.totals["C-DRV"]) / float64(cnt)
+	} else {
+		avg_drv_q, avg_c_drv = 0, 0
+	}
+
+	if s.num_batches > 0 {
+		// TODO: rewrite this ugly statement
+		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  avg DRV-Q=%fus C-DRV=%fus\n  min DRV-Q=%fus C-DRV=%fus\n  max DRV-Q=%fus C-DRV=%fus",
+			cnt, float64(avg_drv_q)/1000.0, float64(avg_c_drv)/1000.0, float64(s.minimums["DRV-Q"])/1000.0, float64(s.minimums["C-DRV"])/1000.0, float64(s.maximums["DRV-Q"])/1000.0, float64(s.maximums["C-DRV"])/1000.0)
+	} else {
+		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  Nothing is collected", cnt)
+	}
+}
 
 func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
 	// # # # # # #
@@ -309,14 +326,14 @@ func main() {
 
 	// var count int = 0
 
-	f, err := os.Open(os.Args[1])
+	f_in, err := os.Open(os.Args[1])
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	defer f_in.Close()
 
-	reader := bufio.NewReader(f)
+	reader := bufio.NewReader(f_in)
 
 	for true {
 		err = nil
@@ -325,8 +342,6 @@ func main() {
 		if !(err == nil) {
 			break
 		}
-		// fmt.Println(r)
-		fmt.Println(r.to_s())
 
 		rw := func() string {
 			switch r.Action & 0x00030000 {
@@ -343,38 +358,37 @@ func main() {
 			readStats.Add_record(r)
 		} else if rw == "W" {
 			writeStats.Add_record(r)
+		} else {
+			fmt.Println(r.ToString())
 		}
-		// else {
-		// }
 	}
 
-	// puts "\n\n"
-	// puts "yabtar_read_stat:", read_statistics
-	// puts "yabtar_write_stat:", write_statistics
-	//
-	// puts "\n\n"
-	// File.open(ARGV[1], "w") do |f|
-	// # "total"=>statistics.instance_variable_get(:@totals),
-	//     t = JSON.generate(
-	//         {
-	//             "R"=>
-	//             {
-	//                 "min"=>read_statistics.instance_variable_get(:@minimums),
-	//                 "max"=>read_statistics.instance_variable_get(:@maximums),
-	//                 "mean"=>read_statistics.get_averages
-	//             },
-	//             "W"=>
-	//             {
-	//                 "min"=>write_statistics.instance_variable_get(:@minimums),
-	//                 "max"=>write_statistics.instance_variable_get(:@maximums),
-	//                 "mean"=>write_statistics.get_averages
-	//             }
-	//
-	//         })
-	//     puts 'json: ', t
-	//     f.write(t)
-	// end
-	//
-	// puts "\n\n"
-	// puts "statistics written to outfile"
+	fmt.Println("\n\n")
+	fmt.Println("yabtar_read_stat:", readStats.ToString())
+	fmt.Println("yabtar_write_stat:", writeStats.ToString())
+	fmt.Println("\n\n")
+
+	f_out, err := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer f_out.Close()
+	writer := bufio.NewWriter(f_out)
+
+	jData := BlktraceResult{}
+
+	jData.R.Min = readStats.minimums
+	jData.R.Max = readStats.maximums
+	jData.R.Mean = readStats.GetAvg()
+
+	jData.W.Min = writeStats.minimums
+	jData.W.Max = writeStats.maximums
+	jData.W.Mean = writeStats.GetAvg()
+
+	j, err := json.Marshal(jData)
+	fmt.Println(string(j))
+
+	_, err = writer.Write(j)
+	writer.Flush()
 }
