@@ -10,11 +10,11 @@ import (
 )
 
 type BlktraceRecord struct {
-	Magic, Seq                   uint32
+	// Magic                        uint32
+	Seq                          uint32
 	Time, Sector                 uint64
 	Bytes, Action, Pid, Dev, Cpu uint32
-	Err                          uint16
-	Pdu_len                      uint16
+	Err, Pdu_len                 uint16
 
 	Pdu_data string
 }
@@ -37,6 +37,8 @@ type BlktraceStatistics struct {
 
 func NewBlktraceStatistics() *BlktraceStatistics {
 	newObj := BlktraceStatistics{num_batches: 0}
+
+	newObj.trace_batches = make(map[uint64]map[string]*BlktraceRecord)
 
 	newObj.totals = make(map[string]uint64)
 	newObj.minimums = make(map[string]uint64)
@@ -227,22 +229,64 @@ func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
 
 	readN := func(n int) []byte {
 		//var l int
-		_, err = reader.Read(buf[0:n])
+		//_, err = reader.Read(buf[0:n])
+		_, err = io.ReadFull(reader, buf[0:n])
 		// fmt.Println(l, err)
 		return buf[0:n]
 	}
 
-	_ = u32le(readN(4)) // d_magic
-	r.Seq = u32le(readN(4))
-	r.Time = u64le(readN(8))
-	r.Sector = u64le(readN(8))
-	r.Bytes = u32le(readN(4))
-	r.Action = u32le(readN(4))
-	r.Pid = u32le(readN(4))
-	r.Dev = u32le(readN(4))
-	r.Cpu = u32le(readN(4))
-	r.Err = u16le(readN(2))
-	r.Pdu_len = u16le(readN(2))
+	l := 8*2 + 4*7 + 2*2
+	readN(l)
+	/*
+		_, err = io.ReadFull(reader, buf[0:l])
+		//_, err = reader.Read(buf[0:l])
+		for i := 0; i < l; i += 1 {
+			switch i % 2 {
+			case 0:
+				fmt.Printf("%02x", buf[i])
+				break
+			case 1:
+				fmt.Printf("%02x ", buf[i])
+				break
+			}
+		}
+		fmt.Println()
+	*/
+
+	st := 0
+
+	_ = u32le(buf[st : st+4]) // d_magic
+	st += 4
+
+	r.Seq = u32le(buf[st : st+4])
+	st += 4
+
+	r.Time = u64le(buf[st : st+8])
+	st += 8
+
+	r.Sector = u64le(buf[st : st+8])
+	st += 8
+
+	r.Bytes = u32le(buf[st : st+4])
+	st += 4
+
+	r.Action = u32le(buf[st : st+4])
+	st += 4
+
+	r.Pid = u32le(buf[st : st+4])
+	st += 4
+
+	r.Dev = u32le(buf[st : st+4])
+	st += 4
+
+	r.Cpu = u32le(buf[st : st+4])
+	st += 4
+
+	r.Err = u16le(buf[st : st+2])
+	st += 2
+
+	r.Pdu_len = u16le(buf[st : st+2])
+	st += 2
 
 	if r.Pdu_len > 0 {
 		r.Pdu_data = string(readN(int(r.Pdu_len)))
@@ -260,8 +304,8 @@ func main() {
 
 	// Signal.trap("PIPE", "EXIT")
 
-	// readStats := NewBlktraceStatistics()
-	// writeStats := NewBlktraceStatistics()
+	readStats := NewBlktraceStatistics()
+	writeStats := NewBlktraceStatistics()
 
 	// var count int = 0
 
@@ -274,12 +318,6 @@ func main() {
 
 	reader := bufio.NewReader(f)
 
-	// line, err := r.ReadString(10) // line defined once
-	// for err != io.EOF {
-	// 	fmt.Print(line)              // or any stuff
-	// 	line, err = r.ReadString(10) //  line was defined before
-	// }
-
 	for true {
 		err = nil
 		r, err := Read_and_parse_one_record(reader)
@@ -287,24 +325,25 @@ func main() {
 		if !(err == nil) {
 			break
 		}
+		// fmt.Println(r)
 		fmt.Println(r.to_s())
 
-		// rw := func() string {
-		// 	switch r.Action & 0x00030000 {
-		// 	case 0x00010000:
-		// 		return "R"
-		// 	case 0x00020000:
-		// 		return "W"
-		// 	default:
-		// 		return "?"
-		// 	}
-		// }()
+		rw := func() string {
+			switch r.Action & 0x00030000 {
+			case 0x00010000:
+				return "R"
+			case 0x00020000:
+				return "W"
+			default:
+				return "?"
+			}
+		}()
 
-		// if rw == "R" {
-		// 	readStats.Add_record(r)
-		// } else if rw == "W" {
-		// 	writeStats.Add_record(r)
-		// }
+		if rw == "R" {
+			readStats.Add_record(r)
+		} else if rw == "W" {
+			writeStats.Add_record(r)
+		}
 		// else {
 		// }
 	}
