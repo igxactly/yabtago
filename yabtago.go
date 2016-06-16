@@ -1,6 +1,5 @@
 package main
 
-// require 'json'
 import (
 	"bufio"
 	"encoding/binary"
@@ -35,7 +34,7 @@ func (r *BlktraceRecord) ToString() string {
 	return fmt.Sprintf("BlktraceRecord:%d %d %d %d 0x%08x %d %d %d %d %d %s",
 		r.Seq, r.Time, r.Cpu, r.Pid, r.Action,
 		r.Dev, r.Sector, r.Bytes, r.Err, r.Pdu_len, r.Pdu_data)
-	//.gsub(/[\x00-\x08\x0A-\x1F\x7F]/, ' ')
+	/* TODO: replace non-readable chars from r.Pdu_data /[\x00-\x08\x0A-\x1F\x7F]/ */
 }
 
 type BlktraceStatistics struct {
@@ -63,11 +62,6 @@ func NewBlktraceStatistics() *BlktraceStatistics {
 	newObj.maximums["DRV-Q"] = 0
 	newObj.maximums["C-DRV"] = 0
 	return &newObj
-}
-
-func test() int32 {
-
-	return 0
 }
 
 func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
@@ -119,9 +113,7 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 	var rGroup map[string]*BlktraceRecord
 	rGroup = s.trace_batches[r.Sector]
 
-	// puts @trace_batches, "\n\n"
 	// FIXME: Hardcoded action lists.
-
 	var ready bool
 	ready = func() bool { // check if all of three are collected
 		for _, k := range []string{"Q", "DRV", "C"} {
@@ -138,15 +130,12 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 
 		if drv_q < 0 {
 			fmt.Printf("Warning: minus!! %d", drv_q)
-
-			// puts "Warning: minus!! %d" % drv_q
-			// puts r
+			fmt.Printf(r.ToString())
 		}
 
 		if c_drv < 0 {
 			fmt.Printf("Warning: minus!! %d", c_drv)
-
-			// puts r
+			fmt.Printf(r.ToString())
 		}
 
 		s.totals["DRV-Q"] += drv_q
@@ -240,35 +229,13 @@ func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
 	u32le := binary.LittleEndian.Uint32
 	u64le := binary.LittleEndian.Uint64
 
-	// u16be := binary.BigEndian.Uint16
-	// u32be := binary.BigEndian.Uint32
-	// u64be := binary.BigEndian.Uint64
-
 	readN := func(n int) []byte {
-		//var l int
-		//_, err = reader.Read(buf[0:n])
 		_, err = io.ReadFull(reader, buf[0:n])
-		// fmt.Println(l, err)
 		return buf[0:n]
 	}
 
 	l := 8*2 + 4*7 + 2*2
 	readN(l)
-	/*
-		_, err = io.ReadFull(reader, buf[0:l])
-		//_, err = reader.Read(buf[0:l])
-		for i := 0; i < l; i += 1 {
-			switch i % 2 {
-			case 0:
-				fmt.Printf("%02x", buf[i])
-				break
-			case 1:
-				fmt.Printf("%02x ", buf[i])
-				break
-			}
-		}
-		fmt.Println()
-	*/
 
 	st := 0
 
@@ -323,8 +290,6 @@ func main() {
 
 	readStats := NewBlktraceStatistics()
 	writeStats := NewBlktraceStatistics()
-
-	// var count int = 0
 
 	f_in, err := os.Open(os.Args[1])
 	if err != nil {
