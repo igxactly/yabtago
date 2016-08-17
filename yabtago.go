@@ -356,4 +356,7 @@ func main() {
 
 	_, err = writer.Write(j)
 	writer.Flush()
+
+	fmt.Println(readStats.totals)
+	fmt.Println(writeStats.totals)
 }
