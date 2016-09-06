@@ -357,6 +357,16 @@ func main() {
 	_, err = writer.Write(j)
 	writer.Flush()
 
-	fmt.Println(readStats.totals)
-	fmt.Println(writeStats.totals)
+	// fmt.Println(readStats.totals)
+	// fmt.Println(writeStats.totals)
+
+	fmt.Print(readStats.totals["DRV-Q"])
+	fmt.Print(", ")
+	fmt.Print(readStats.totals["C-DRV"])
+
+	fmt.Print(", ")
+
+	fmt.Print(writeStats.totals["DRV-Q"])
+	fmt.Print(", ")
+	fmt.Print(writeStats.totals["C-DRV"])
 }
