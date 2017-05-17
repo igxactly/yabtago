@@ -9,47 +9,53 @@ import (
 	"os"
 )
 
+// MinMaxMean is ...
 type MinMaxMean struct {
 	Min  map[string]uint64  `json:"min"`
 	Max  map[string]uint64  `json:"max"`
 	Mean map[string]float64 `json:"mean"`
 }
 
+// BlktraceResult is
 type BlktraceResult struct {
 	R MinMaxMean
 	W MinMaxMean
 }
 
+// BlktraceRecord is
 type BlktraceRecord struct {
 	// Magic                        uint32
 	Seq                          uint32
 	Time, Sector                 uint64
-	Bytes, Action, Pid, Dev, Cpu uint32
-	Err, Pdu_len                 uint16
+	Bytes, Action, Pid, Dev, CPU uint32
+	Err, PduLen                  uint16
 
-	Pdu_data string
+	PduData string
 }
 
+// ToString -
 func (r *BlktraceRecord) ToString() string {
 	return fmt.Sprintf("BlktraceRecord:%d %d %d %d 0x%08x %d %d %d %d %d %s",
-		r.Seq, r.Time, r.Cpu, r.Pid, r.Action,
-		r.Dev, r.Sector, r.Bytes, r.Err, r.Pdu_len, r.Pdu_data)
+		r.Seq, r.Time, r.CPU, r.Pid, r.Action,
+		r.Dev, r.Sector, r.Bytes, r.Err, r.PduLen, r.PduData)
 	/* TODO: replace non-readable chars from r.Pdu_data /[\x00-\x08\x0A-\x1F\x7F]/ */
 }
 
+// BlktraceStatistics is ...
 type BlktraceStatistics struct {
-	trace_batches map[uint64]map[string]*BlktraceRecord
-	num_batches   uint64
+	traceBatches map[uint64]map[string]*BlktraceRecord
+	numBatches   uint64
 
 	totals   map[string]uint64
 	minimums map[string]uint64
 	maximums map[string]uint64
 }
 
+// NewBlktraceStatistics is ...
 func NewBlktraceStatistics() *BlktraceStatistics {
-	newObj := BlktraceStatistics{num_batches: 0}
+	newObj := BlktraceStatistics{numBatches: 0}
 
-	newObj.trace_batches = make(map[uint64]map[string]*BlktraceRecord)
+	newObj.traceBatches = make(map[uint64]map[string]*BlktraceRecord)
 
 	newObj.totals = make(map[string]uint64)
 	newObj.minimums = make(map[string]uint64)
@@ -64,7 +70,8 @@ func NewBlktraceStatistics() *BlktraceStatistics {
 	return &newObj
 }
 
-func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
+// AddRecord is
+func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 	var a string
 
 	a = func() string {
@@ -80,8 +87,8 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 		}
 	}()
 
-	if _, ok := s.trace_batches[r.Sector]; !ok || a == "Q" {
-		s.trace_batches[r.Sector] = make(map[string]*BlktraceRecord)
+	if _, ok := s.traceBatches[r.Sector]; !ok || a == "Q" {
+		s.traceBatches[r.Sector] = make(map[string]*BlktraceRecord)
 	}
 
 	// enum blktrace_act {
@@ -107,11 +114,11 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 	// FIXME: Hardcoded action lists.
 	// FIXME: Move bin/str action representation into a method
 	if !(a == "?") {
-		s.trace_batches[r.Sector][a] = r
+		s.traceBatches[r.Sector][a] = r
 	}
 
 	var rGroup map[string]*BlktraceRecord
-	rGroup = s.trace_batches[r.Sector]
+	rGroup = s.traceBatches[r.Sector]
 
 	// FIXME: Hardcoded action lists.
 	var ready bool
@@ -125,84 +132,86 @@ func (s *BlktraceStatistics) Add_record(r *BlktraceRecord) {
 	}()
 
 	if ready {
-		drv_q := rGroup["DRV"].Time - rGroup["Q"].Time
-		c_drv := rGroup["C"].Time - rGroup["DRV"].Time
+		drvToQ := rGroup["DRV"].Time - rGroup["Q"].Time
+		cToDrv := rGroup["C"].Time - rGroup["DRV"].Time
 
-		if drv_q < 0 {
-			fmt.Printf("Warning: minus!! %d", drv_q)
+		if drvToQ < 0 {
+			fmt.Printf("Warning: minus!! %d", drvToQ)
 			fmt.Printf(r.ToString())
 		}
 
-		if c_drv < 0 {
-			fmt.Printf("Warning: minus!! %d", c_drv)
+		if cToDrv < 0 {
+			fmt.Printf("Warning: minus!! %d", cToDrv)
 			fmt.Printf(r.ToString())
 		}
 
-		s.totals["DRV-Q"] += drv_q
-		s.totals["C-DRV"] += c_drv
+		s.totals["DRV-Q"] += drvToQ
+		s.totals["C-DRV"] += cToDrv
 
-		s.num_batches += 1
+		s.numBatches++
 
 		// #FIXME: Hardcoded action lists.
-		if (s.minimums["DRV-Q"] == 0) || (s.minimums["DRV-Q"] > drv_q) {
-			s.minimums["DRV-Q"] = drv_q
+		if (s.minimums["DRV-Q"] == 0) || (s.minimums["DRV-Q"] > drvToQ) {
+			s.minimums["DRV-Q"] = drvToQ
 		}
 
-		if (s.minimums["C-DRV"] == 0) || (s.minimums["C-DRV"] > c_drv) {
-			s.minimums["C-DRV"] = c_drv
+		if (s.minimums["C-DRV"] == 0) || (s.minimums["C-DRV"] > cToDrv) {
+			s.minimums["C-DRV"] = cToDrv
 		}
 
-		if (s.maximums["DRV-Q"] == 0) || (s.maximums["DRV-Q"] < drv_q) {
-			s.maximums["DRV-Q"] = drv_q
+		if (s.maximums["DRV-Q"] == 0) || (s.maximums["DRV-Q"] < drvToQ) {
+			s.maximums["DRV-Q"] = drvToQ
 		}
 
-		if (s.maximums["C-DRV"] == 0) || (s.maximums["C-DRV"] < c_drv) {
-			s.maximums["C-DRV"] = c_drv
+		if (s.maximums["C-DRV"] == 0) || (s.maximums["C-DRV"] < cToDrv) {
+			s.maximums["C-DRV"] = cToDrv
 		}
 
-		delete(s.trace_batches, r.Sector)
+		delete(s.traceBatches, r.Sector)
 	}
 }
 
+// GetAvg is
 func (s *BlktraceStatistics) GetAvg() map[string]float64 {
-	var avg_drv_q, avg_c_drv float64
+	var avgDrvToQ, avgCToDrv float64
 
 	avgs := make(map[string]float64)
-	cnt := s.num_batches
+	cnt := s.numBatches
 
 	if cnt > 0 {
-		avg_drv_q = float64(s.totals["DRV-Q"]) / float64(cnt)
-		avg_c_drv = float64(s.totals["C-DRV"]) / float64(cnt)
+		avgDrvToQ = float64(s.totals["DRV-Q"]) / float64(cnt)
+		avgCToDrv = float64(s.totals["C-DRV"]) / float64(cnt)
 	} else {
-		avg_drv_q, avg_c_drv = 0, 0
+		avgDrvToQ, avgCToDrv = 0, 0
 	}
 
-	avgs["DRV-Q"] = avg_drv_q
-	avgs["C-DRV"] = avg_c_drv
+	avgs["DRV-Q"] = avgDrvToQ
+	avgs["C-DRV"] = avgCToDrv
 	return avgs
 }
 
+// ToString is
 func (s *BlktraceStatistics) ToString() string {
-	cnt := s.num_batches
-	var avg_drv_q, avg_c_drv float64
+	cnt := s.numBatches
+	var avgDrvToQ, avgCToDrv float64
 
 	if cnt > 0 {
-		avg_drv_q = float64(s.totals["DRV-Q"]) / float64(cnt)
-		avg_c_drv = float64(s.totals["C-DRV"]) / float64(cnt)
+		avgDrvToQ = float64(s.totals["DRV-Q"]) / float64(cnt)
+		avgCToDrv = float64(s.totals["C-DRV"]) / float64(cnt)
 	} else {
-		avg_drv_q, avg_c_drv = 0, 0
+		avgDrvToQ, avgCToDrv = 0, 0
 	}
 
-	if s.num_batches > 0 {
+	if s.numBatches > 0 {
 		// TODO: rewrite this ugly statement
 		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  avg DRV-Q=%fus C-DRV=%fus\n  min DRV-Q=%fus C-DRV=%fus\n  max DRV-Q=%fus C-DRV=%fus",
-			cnt, float64(avg_drv_q)/1000.0, float64(avg_c_drv)/1000.0, float64(s.minimums["DRV-Q"])/1000.0, float64(s.minimums["C-DRV"])/1000.0, float64(s.maximums["DRV-Q"])/1000.0, float64(s.maximums["C-DRV"])/1000.0)
-	} else {
-		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  Nothing is collected", cnt)
+			cnt, float64(avgDrvToQ)/1000.0, float64(avgCToDrv)/1000.0, float64(s.minimums["DRV-Q"])/1000.0, float64(s.minimums["C-DRV"])/1000.0, float64(s.maximums["DRV-Q"])/1000.0, float64(s.maximums["C-DRV"])/1000.0)
 	}
+	return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  Nothing is collected", cnt)
 }
 
-func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
+// ReadAndParseOneRecord is
+func ReadAndParseOneRecord(reader io.Reader) (*BlktraceRecord, error) {
 	// # # # # # #
 	// # Reference:
 	// #   struct blk
@@ -263,19 +272,19 @@ func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
 	r.Dev = u32le(buf[st : st+4])
 	st += 4
 
-	r.Cpu = u32le(buf[st : st+4])
+	r.CPU = u32le(buf[st : st+4])
 	st += 4
 
 	r.Err = u16le(buf[st : st+2])
 	st += 2
 
-	r.Pdu_len = u16le(buf[st : st+2])
+	r.PduLen = u16le(buf[st : st+2])
 	st += 2
 
-	if r.Pdu_len > 0 {
-		r.Pdu_data = string(readN(int(r.Pdu_len)))
+	if r.PduLen > 0 {
+		r.PduData = string(readN(int(r.PduLen)))
 	} else {
-		r.Pdu_data = ""
+		r.PduData = ""
 	}
 
 	return r, err
@@ -284,25 +293,25 @@ func Read_and_parse_one_record(reader io.Reader) (*BlktraceRecord, error) {
 //#################
 //# main program flow starts here
 func main() {
-	var err error = nil
+	var err error
 
 	// Signal.trap("PIPE", "EXIT")
 
 	readStats := NewBlktraceStatistics()
 	writeStats := NewBlktraceStatistics()
 
-	f_in, err := os.Open(os.Args[1])
+	fileInput, err := os.Open(os.Args[1])
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer f_in.Close()
+	defer fileInput.Close()
 
-	reader := bufio.NewReader(f_in)
+	reader := bufio.NewReader(fileInput)
 
 	for true {
 		err = nil
-		r, err := Read_and_parse_one_record(reader)
+		r, err := ReadAndParseOneRecord(reader)
 
 		if !(err == nil) {
 			break
@@ -320,26 +329,26 @@ func main() {
 		}()
 
 		if rw == "R" {
-			readStats.Add_record(r)
+			readStats.AddRecord(r)
 		} else if rw == "W" {
-			writeStats.Add_record(r)
+			writeStats.AddRecord(r)
 		} else {
 			fmt.Println(r.ToString())
 		}
 	}
 
-	fmt.Println("\n\n")
+	fmt.Print("\n\n\n")
 	fmt.Println("yabtar_read_stat:", readStats.ToString())
 	fmt.Println("yabtar_write_stat:", writeStats.ToString())
-	fmt.Println("\n\n")
+	fmt.Print("\n\n\n")
 
-	f_out, err := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE, 0644)
+	fileOutput, err := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer f_out.Close()
-	writer := bufio.NewWriter(f_out)
+	defer fileOutput.Close()
+	writer := bufio.NewWriter(fileOutput)
 
 	jData := BlktraceResult{}
 
