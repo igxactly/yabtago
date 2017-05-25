@@ -346,14 +346,6 @@ func report(input *bufio.Reader, output *bufio.Writer) {
 	fmt.Println("yabtar_write_stat:", writeStats.String())
 	fmt.Print("\n\n\n")
 
-	// fileOutput, err := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE, 0644)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
-	// defer fileOutput.Close()
-	// writer := bufio.NewWriter(fileOutput)
-
 	jData := BlktraceResult{}
 
 	jData.R.Min = readStats.minimums
@@ -365,10 +357,13 @@ func report(input *bufio.Reader, output *bufio.Writer) {
 	jData.W.Mean = writeStats.GetAvg()
 
 	j, err := json.Marshal(jData)
-	fmt.Println(string(j))
 
-	_, err = output.Write(j)
-	output.Flush()
+	if output != nil {
+		_, err = output.Write(j)
+		output.Flush()
+	} else {
+		fmt.Println(string(j))
+	}
 
 	// fmt.Println(readStats.totals)
 	// fmt.Println(writeStats.totals)
@@ -414,7 +409,7 @@ func main() {
 
 	var writer *bufio.Writer
 	if args.Output != "" {
-		fileOutput, err := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE, 0644)
+		fileOutput, err := os.OpenFile(args.Output, os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
