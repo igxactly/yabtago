@@ -55,3 +55,90 @@ func (r *BlktraceRecord) String() string {
 
 	/* TODO: replace non-readable chars from r.Pdu_data /[\x00-\x08\x0A-\x1F\x7F]/ */
 }
+
+// Trace actions - definition from blktrace_api.h
+const (
+	TAQueue       uint32 = iota + 1 /* queued */
+	TABackmerge                     /* back merged to existing rq */
+	TAFrontmerge                    /* front merge to existing rq */
+	TAGetrq                         /* allocated new request */
+	TASleeprq                       /* sleeping on rq allocation */
+	TARequeue                       /* request requeued */
+	TAIssue                         /* sent to driver */
+	TAComplete                      /* completed by driver */
+	TAPlug                          /* queue was plugged */
+	TAUnplugIO                      /* queue was unplugged by io */
+	TAUnplugTimer                   /* queue was unplugged by timer */
+	TAInsert                        /* insert request */
+	TASplit                         /* bio was split */
+	TABounce                        /* bio was bounced */
+	TARemap                         /* bio was remapped */
+	TAAbort                         /* request aborted */
+	TADrvData                       /* binary driver data */
+)
+
+// Trace notify events
+const (
+	TNProcess   uint32 = iota /* establish pid/name mapping */
+	TNTimestamp               /* include system clock */
+	TNMessage                 /* Character string message */
+)
+
+// Trace category bit is most significiant half of action field
+const (
+	TCShift = 16
+)
+
+// Trace categories - definition from blktrace_api.h
+const (
+	TCRead     uint32 = 1 << (iota + TCShift) /* reads */
+	TCWrite                                   /* writes */
+	TCFlush                                   /* flush */
+	TCSync                                    /* sync */
+	TCQueue                                   /* queueing/merging */
+	TCRequeue                                 /* requeueing */
+	TCIssue                                   /* issue */
+	TCComplete                                /* completions */
+	TCFs                                      /* fs requests */
+	TCPc                                      /* pc requests */
+	TCNotify                                  /* special message */
+	TCAhead                                   /* readahead */
+	TCMeta                                    /* metadata */
+	TCDiscard                                 /* discard requests */
+	TCDrvData                                 /* binary driver data */
+	TCFua                                     /* fua requests */
+
+	TCEnd = TCFua /* we've run out of bits! */
+)
+
+// Trace actions in FULL. Additionally, read or write is masked
+const (
+	FAQueue       uint32 = TAQueue | TCQueue
+	FABackmerge          = TABackmerge | TCQueue
+	FAFrontmerge         = TAFrontmerge | TCQueue
+	FAGetrq              = TAGetrq | TCQueue
+	FASleeprq            = TASleeprq | TCQueue
+	FARequeue            = TARequeue | TCRequeue
+	FAIssue              = TAIssue | TCIssue
+	FAComplete           = TAComplete | TCComplete
+	FAPlug               = TAPlug | TCQueue
+	FAUnplugIO           = TAUnplugIO | TCQueue
+	FAUnplugTimer        = TAUnplugTimer | TCQueue
+	FAInsert             = TAInsert | TCQueue
+	FASplit              = TASplit
+	FABounce             = TABounce
+	FARemap              = TARemap | TCQueue
+	FAAbort              = TAAbort | TCQueue
+	FADrvData            = TADrvData | TCDrvData
+
+	// Notify
+	FNProcess   uint32 = TNProcess | TCNotify
+	FNTimestamp        = TNTimestamp | TCNotify
+	FNMessage          = TNMessage | TCNotify
+)
+
+// blktrace magic / version sequence
+const (
+	BlktraceMagic   uint32 = 0x65617400
+	BlktraceVersion        = 0x07
+)
