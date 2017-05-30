@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"os"
 )
 
 var u16le = binary.LittleEndian.Uint16
@@ -12,7 +13,7 @@ var u32le = binary.LittleEndian.Uint32
 var u64le = binary.LittleEndian.Uint64
 
 // Parse reads/parses/shows blktrace records.
-func Parse(input *bufio.Reader, output *bufio.Writer) {
+func Parse(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 	var err error
 	var r *BlktraceRecord
 
@@ -22,6 +23,7 @@ func Parse(input *bufio.Reader, output *bufio.Writer) {
 
 		if !(err == nil) {
 			// TODO: check of any error occured while reading record.
+
 			// if err is not eof error {
 			// 	fmt.Println("parse(): something went wrong while reading blktrace record")
 			// }

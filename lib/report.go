@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 // Report reads/parses blktrace records and collects statistics data.
-func Report(input *bufio.Reader, output *bufio.Writer) {
+func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 	var err error
 	var r *BlktraceRecord
 

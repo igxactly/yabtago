@@ -1,0 +1,48 @@
+[yabtago]
+configtitle = "example"
+
+[parse]
+printformat = "normal" # normal short custom
+# customformat = ""
+
+# Possible tracepoint list of blktrace API:
+#     queue backmerge frontmerge
+#     getrq sleeprq requeue
+#     issue complete plug
+#     unplugio unplugtimer
+#     insert split bounce remap abort
+#
+# note: drvdata is used for 'custom' points
+
+[tracePoints.blktraceAPI]
+enabled = ["queue", "issue", "complete"]
+
+[tracePoints.custom]
+enableDrvdata = true
+list = [
+    [ "IDH", "Issue to device hardware" ],
+    [ "RDH", "Response from device hardware" ],
+    # [ "tag", "description"]
+]
+
+[report]
+# fioResultMerge = false
+read = true
+write = true
+others = false
+
+[report.numbers]
+minimum = true
+maximum = true
+average = true
+# median = false
+# percentiles = false
+# distribution = false
+
+[report.timeSections]
+list = [
+    [ "Q2I", "queue", "issue" ],
+    [ "I2D", "issue", "IDH" ],
+    [ "D2D", "IDH", "RDH" ],
+    [ "D2C", "RDH", "complete" ]
+]

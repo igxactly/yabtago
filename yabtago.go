@@ -14,11 +14,11 @@ import (
 func main() {
 	// program arguments declaration
 	var args struct {
-		Action       string `arg:"positional,required,help:parse or report"`
-		Input        string `arg:"positional,required,help:specify the input blktrace file"`
-		Output       string `arg:"-o"`
-		OutFormat    string `arg:"--oformat,-f"`
-		ReportConfig string `arg:"-r"`
+		Action    string `arg:"positional,required,help:parse or report"`
+		Input     string `arg:"positional,required,help:specify the input blktrace file"`
+		Output    string `arg:"-o"`
+		OutFormat string `arg:"--oformat,-f"`
+		Config    string `arg:"-c,help:parse/report configuration"`
 	}
 
 	// default argument values
@@ -37,6 +37,16 @@ func main() {
 	defer fileInput.Close()
 	reader := bufio.NewReader(fileInput)
 
+	var config *os.File
+	if args.Config != "" {
+		config, err = os.Open(args.Config)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer fileInput.Close()
+	}
+
 	var writer *bufio.Writer
 	if args.Output != "" {
 		fileOutput, err := os.OpenFile(args.Output, os.O_RDWR|os.O_CREATE, 0644)
@@ -50,11 +60,10 @@ func main() {
 
 	switch args.Action {
 	case "parse":
-		lib.Parse(reader, writer)
+		lib.Parse(reader, writer, config)
 		break
 	case "report":
-		// TODO: Check report config and than go on
-		lib.Report(reader, writer)
+		lib.Report(reader, writer, config)
 		break
 	default:
 		fmt.Println("undefined action '" + args.Action + "'")
