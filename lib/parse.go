@@ -7,6 +7,10 @@ import (
 	"io"
 )
 
+var u16le = binary.LittleEndian.Uint16
+var u32le = binary.LittleEndian.Uint32
+var u64le = binary.LittleEndian.Uint64
+
 // Parse reads/parses/shows blktrace records.
 func Parse(input *bufio.Reader, output *bufio.Writer) {
 	var err error
@@ -29,68 +33,36 @@ func Parse(input *bufio.Reader, output *bufio.Writer) {
 }
 
 // ReadBlktraceRecord reads one blktrace record from reader and create/return a BlktraceRecord.
-func ReadBlktraceRecord(reader io.Reader) (*BlktraceRecord, error) {
-	// Reference: blktrace record structure
-	//     - definition from blktrace_api.h
-	//
-	// blktrace log file is written in this structure.
-	//
-	// # __u32 magic;        /* MAGIC << 8 | version */
-	// # __u32 sequence;     /* event number */
-	// # __u64 time;     /* in microseconds */ ??? it seems it is not US but NS
-	// # __u64 sector;       /* disk offset */
-	// # __u32 bytes;        /* transfer length */
-	// # __u32 action;       /* what happened */
-	// # __u32 pid;      /* who did it */
-	// # __u32 device;       /* device number */
-	// # __u32 cpu;      /* on what cpu did it happen */
-	// # __u16 error;        /* completion error */
-	// # __u16 pdu_len;      /* length of data after this trace */
-	//
-	// and PDU data follows.
-
-	r := new(BlktraceRecord)
-
-	var err error
+func ReadBlktraceRecord(reader io.Reader) (r *BlktraceRecord, err error) {
 	var buf = make([]byte, 1024)
-
-	u16le := binary.LittleEndian.Uint16
-	u32le := binary.LittleEndian.Uint32
-	u64le := binary.LittleEndian.Uint64
 
 	readN := func(n int) []byte {
 		_, err = io.ReadFull(reader, buf[0:n])
 		return buf[0:n]
 	}
 
+	getField := func(field int) []byte {
+		return buf[btFieldOffset[field]:btFieldOffset[field+1]]
+	}
+
+	r = new(BlktraceRecord)
+
 	// Read a blktrace record, excluding pdu_data
-	l := 8*2 + 4*7 + 2*2 // 64bit*2, 32bit*7, 16bit*2
-	readN(l)
+	readN(btBaseLength)
 
 	// assign each fields
-	st := 0
-	_ = u32le(buf[st : st+4]) // omit d_magic
-	st += 4
-	r.Seq = u32le(buf[st : st+4])
-	st += 4
-	r.Time = u64le(buf[st : st+8])
-	st += 8
-	r.Sector = u64le(buf[st : st+8])
-	st += 8
-	r.Bytes = u32le(buf[st : st+4])
-	st += 4
-	r.Action = u32le(buf[st : st+4])
-	st += 4
-	r.Pid = u32le(buf[st : st+4])
-	st += 4
-	r.Dev = u32le(buf[st : st+4])
-	st += 4
-	r.CPU = u32le(buf[st : st+4])
-	st += 4
-	r.Err = u16le(buf[st : st+2])
-	st += 2
-	r.PduLen = u16le(buf[st : st+2])
-	st += 2
+	// TODO: check endianess
+	_ = u32le(getField(0)) // omit d_magic
+	r.Seq = u32le(getField(1))
+	r.Time = u64le(getField(2))
+	r.Sector = u64le(getField(3))
+	r.Bytes = u32le(getField(4))
+	r.Action = u32le(getField(5))
+	r.Pid = u32le(getField(6))
+	r.Dev = u32le(getField(7))
+	r.CPU = u32le(getField(8))
+	r.Err = u16le(getField(9))
+	r.PduLen = u16le(getField(10))
 
 	if r.PduLen > 0 {
 		// TODO: handle non-char bytes

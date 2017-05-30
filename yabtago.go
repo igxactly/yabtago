@@ -28,7 +28,7 @@ func main() {
 	arg.MustParse(&args)
 	fmt.Printf("%+v\n", args)
 
-	// TODO: try to open in/output files
+	// try to open in/output files
 	fileInput, err := os.Open(args.Input)
 	if err != nil {
 		fmt.Println(err)
@@ -57,6 +57,6 @@ func main() {
 		lib.Report(reader, writer)
 		break
 	default:
-		println("main(): seems like something went wrong!!!")
+		fmt.Println("undefined action '" + args.Action + "'")
 	}
 }
