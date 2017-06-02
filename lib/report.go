@@ -139,11 +139,11 @@ func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 
 	a = func() string {
 		switch r.Action & 0x0000FFFF {
-		case 0x0001:
+		case TAQueue:
 			return "Q"
-		case 0x0011:
+		case TADrvData:
 			return "DRV"
-		case 0x0008:
+		case TAComplete:
 			return "C"
 		default:
 			return "?"
@@ -153,26 +153,6 @@ func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 	if _, ok := s.traceBatches[r.Sector]; !ok || a == "Q" {
 		s.traceBatches[r.Sector] = make(map[string]*BlktraceRecord)
 	}
-
-	// enum blktrace_act {
-	//     __BLK_TA_QUEUE = 1,     /* queued */
-	//     __BLK_TA_BACKMERGE,     /* back merged to existing rq */
-	//     __BLK_TA_FRONTMERGE,        /* front merge to existing rq */
-	//     __BLK_TA_GETRQ,         /* allocated new request */
-	//     __BLK_TA_SLEEPRQ,       /* sleeping on rq allocation */
-	//     __BLK_TA_REQUEUE,       /* request requeued */
-	//     __BLK_TA_ISSUE,         /* sent to driver */
-	//     __BLK_TA_COMPLETE,      /* completed by driver */
-	//     __BLK_TA_PLUG,          /* queue was plugged */
-	//     __BLK_TA_UNPLUG_IO,     /* queue was unplugged by io */
-	//     __BLK_TA_UNPLUG_TIMER,      /* queue was unplugged by timer */
-	//     __BLK_TA_INSERT,        /* insert request */
-	//     __BLK_TA_SPLIT,         /* bio was split */
-	//     __BLK_TA_BOUNCE,        /* bio was bounced */
-	//     __BLK_TA_REMAP,         /* bio was remapped */
-	//     __BLK_TA_ABORT,         /* request aborted */
-	//     __BLK_TA_DRV_DATA,      /* driver-specific binary data */
-	// };
 
 	// FIXME: Hardcoded action lists.
 	// FIXME: Move bin/str action representation into a method
