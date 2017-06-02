@@ -30,6 +30,14 @@ func Parse(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 			break
 		}
 
+		if (r.Action & TCRead) != 0 {
+
+		} else if (r.Action & TCWrite) != 0 {
+
+		} else { // others
+
+		}
+
 		fmt.Println(r.String())
 	}
 }

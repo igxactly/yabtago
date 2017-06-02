@@ -2,9 +2,12 @@ package lib
 
 import (
 	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 )
 
 // Report reads/parses blktrace records and collects statistics data.
@@ -15,6 +18,15 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 	readStats := NewBlktraceStatistics()
 	writeStats := NewBlktraceStatistics()
 
+	/*
+		TODO: Implement config based report
+		[ ] check config
+		[ ] create struct for stat collecting
+		[ ] process blktrace records
+		[ ] calulate additional numbers
+		[ ] export to csv/json
+	*/
+
 	for true {
 		err = nil
 		r, err = ReadBlktraceRecord(input)
@@ -24,22 +36,11 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 			break
 		}
 
-		rw := func() string {
-			switch r.Action & 0x00030000 {
-			case 0x00010000:
-				return "R"
-			case 0x00020000:
-				return "W"
-			default:
-				return "?"
-			}
-		}()
-
-		if rw == "R" {
+		if (r.Action & TCRead) != 0 {
 			readStats.AddRecord(r)
-		} else if rw == "W" {
+		} else if (r.Action & TCWrite) != 0 {
 			writeStats.AddRecord(r)
-		} else {
+		} else { // others
 			fmt.Println(r.String())
 		}
 	}
@@ -68,18 +69,26 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 		fmt.Println(string(j))
 	}
 
-	// fmt.Println(readStats.totals)
-	// fmt.Println(writeStats.totals)
+	stats := []uint64{
+		readStats.totals["DRV-Q"],
+		readStats.totals["C-DRV"],
+		writeStats.totals["DRV-Q"],
+		writeStats.totals["C-DRV"],
+	}
 
-	fmt.Print(readStats.totals["DRV-Q"])
-	fmt.Print(", ")
-	fmt.Print(readStats.totals["C-DRV"])
+	statsStr := func() []string {
+		var sList []string
+		for _, u := range stats {
+			sList = append(sList, strconv.FormatUint(u, 10))
+		}
+		return sList
+	}()
 
-	fmt.Print(", ")
-
-	fmt.Print(writeStats.totals["DRV-Q"])
-	fmt.Print(", ")
-	fmt.Print(writeStats.totals["C-DRV"])
+	w := csv.NewWriter(os.Stdout)
+	if err = w.Write(statsStr); err != nil {
+		log.Fatalln("error writing record to csv:", err)
+	}
+	w.Flush()
 }
 
 // MinMaxMean -
