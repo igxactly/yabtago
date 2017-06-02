@@ -12,6 +12,8 @@ import (
 //#################
 //# main program flow starts here
 func main() {
+	// runtime.GOMAXPROCS(2)
+
 	// program arguments declaration
 	var args struct {
 		Action    string `arg:"positional,required,help:parse or report"`

@@ -8,7 +8,21 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 )
+
+func collectRecord(wg *sync.WaitGroup, records chan *BlktraceRecord, stats *BlktraceStatistics) {
+	defer wg.Done()
+
+	for true {
+		r := <-records
+		if r == nil {
+			break
+		} else {
+			stats.AddRecord(r)
+		}
+	}
+}
 
 // Report reads/parses blktrace records and collects statistics data.
 func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
@@ -27,6 +41,20 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 		[ ] export to csv/json
 	*/
 
+	recordsToPrint := make(chan *BlktraceRecord, 8192)
+	printFinished := make(chan int)
+
+	go printRecords(recordsToPrint, printFinished)
+
+	readRecords := make(chan *BlktraceRecord, 1024)
+	writeRecords := make(chan *BlktraceRecord, 1024)
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go collectRecord(&wg, readRecords, readStats)
+	wg.Add(1)
+	go collectRecord(&wg, writeRecords, writeStats)
+
 	for true {
 		err = nil
 		r, err = ReadBlktraceRecord(input)
@@ -37,13 +65,22 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 		}
 
 		if (r.Action & TCRead) != 0 {
-			readStats.AddRecord(r)
+			// readStats.AddRecord(r)
+			readRecords <- r
 		} else if (r.Action & TCWrite) != 0 {
-			writeStats.AddRecord(r)
+			// writeStats.AddRecord(r)
+			writeRecords <- r
 		} else { // others
-			fmt.Println(r.String())
+			recordsToPrint <- r
 		}
 	}
+
+	// Finish all goroutines
+	readRecords <- nil
+	writeRecords <- nil
+	recordsToPrint <- nil
+	<-printFinished
+	wg.Wait()
 
 	fmt.Print("\n\n\n")
 	fmt.Println("yabtar_read_stat:", readStats.String())

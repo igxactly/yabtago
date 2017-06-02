@@ -12,10 +12,27 @@ var u16le = binary.LittleEndian.Uint16
 var u32le = binary.LittleEndian.Uint32
 var u64le = binary.LittleEndian.Uint64
 
+func printRecords(records chan *BlktraceRecord, finished chan int) {
+	for true {
+		r := <-records
+		if r == nil {
+			break
+		} else {
+			fmt.Println(r.String())
+		}
+	}
+	finished <- 1
+}
+
 // Parse reads/parses/shows blktrace records.
 func Parse(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 	var err error
 	var r *BlktraceRecord
+
+	recordsToPrint := make(chan *BlktraceRecord, 8192)
+	printFinished := make(chan int)
+
+	go printRecords(recordsToPrint, printFinished)
 
 	for true {
 		err = nil
@@ -38,8 +55,11 @@ func Parse(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 
 		}
 
-		fmt.Println(r.String())
+		recordsToPrint <- r
 	}
+
+	recordsToPrint <- nil
+	<-printFinished
 }
 
 // ReadBlktraceRecord reads one blktrace record from reader and create/return a BlktraceRecord.
