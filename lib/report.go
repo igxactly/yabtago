@@ -65,10 +65,8 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 		}
 
 		if (r.Action & TCRead) != 0 {
-			// readStats.AddRecord(r)
 			readRecords <- r
 		} else if (r.Action & TCWrite) != 0 {
-			// writeStats.AddRecord(r)
 			writeRecords <- r
 		} else { // others
 			recordsToPrint <- r
@@ -82,11 +80,14 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 	<-printFinished
 	wg.Wait()
 
+	// TODO: Rewrite report printout code
+	// Print report
 	fmt.Print("\n\n\n")
 	fmt.Println("yabtar_read_stat:", readStats.String())
 	fmt.Println("yabtar_write_stat:", writeStats.String())
 	fmt.Print("\n\n\n")
 
+	// JSON
 	jData := BlktraceResult{}
 
 	jData.R.Min = readStats.minimums
@@ -106,6 +107,7 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
 		fmt.Println(string(j))
 	}
 
+	// CSV
 	stats := []uint64{
 		readStats.totals["DRV-Q"],
 		readStats.totals["C-DRV"],
@@ -143,7 +145,7 @@ type BlktraceResult struct {
 
 // BlktraceStatistics -
 type BlktraceStatistics struct {
-	traceBatches map[uint64]map[string]*BlktraceRecord
+	traceBatches map[uint64]map[uint32]*BlktraceRecord
 	numBatches   uint64
 
 	totals   map[string]uint64
@@ -155,7 +157,7 @@ type BlktraceStatistics struct {
 func NewBlktraceStatistics() *BlktraceStatistics {
 	newObj := BlktraceStatistics{numBatches: 0}
 
-	newObj.traceBatches = make(map[uint64]map[string]*BlktraceRecord)
+	newObj.traceBatches = make(map[uint64]map[uint32]*BlktraceRecord)
 
 	newObj.totals = make(map[string]uint64)
 	newObj.minimums = make(map[string]uint64)
@@ -172,38 +174,34 @@ func NewBlktraceStatistics() *BlktraceStatistics {
 
 // AddRecord is
 func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
-	var a string
+	var a uint32
 
-	a = func() string {
-		switch r.Action & 0x0000FFFF {
-		case TAQueue:
-			return "Q"
-		case TADrvData:
-			return "DRV"
-		case TAComplete:
-			return "C"
-		default:
-			return "?"
-		}
-	}()
+	enabledTracepoints := map[uint32]bool{
+		TAQueue:    true,
+		TADrvData:  true,
+		TAComplete: true,
+	}
 
-	if _, ok := s.traceBatches[r.Sector]; !ok || a == "Q" {
-		s.traceBatches[r.Sector] = make(map[string]*BlktraceRecord)
+	a = r.Action & 0x0000FFFF
+
+	// fmt.Printf("NOT OKAY 0x%08x 0x%08x\n", r.Action, a)
+	if _, ok := s.traceBatches[r.Sector]; !ok || a == TAQueue {
+		s.traceBatches[r.Sector] = make(map[uint32]*BlktraceRecord)
 	}
 
 	// FIXME: Hardcoded action lists.
 	// FIXME: Move bin/str action representation into a method
-	if !(a == "?") {
+	if _, ok := enabledTracepoints[a]; ok {
 		s.traceBatches[r.Sector][a] = r
 	}
 
-	var rGroup map[string]*BlktraceRecord
+	var rGroup map[uint32]*BlktraceRecord
 	rGroup = s.traceBatches[r.Sector]
 
 	// FIXME: Hardcoded action lists.
 	var ready bool
 	ready = func() bool { // check if all of three are collected
-		for _, k := range []string{"Q", "DRV", "C"} {
+		for _, k := range []uint32{TAQueue, TAComplete, TADrvData} {
 			if _, ok := rGroup[k]; !ok {
 				return false
 			}
@@ -212,8 +210,8 @@ func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 	}()
 
 	if ready {
-		drvToQ := rGroup["DRV"].Time - rGroup["Q"].Time
-		cToDrv := rGroup["C"].Time - rGroup["DRV"].Time
+		drvToQ := rGroup[TADrvData].Time - rGroup[TAQueue].Time
+		cToDrv := rGroup[TAComplete].Time - rGroup[TADrvData].Time
 
 		if drvToQ < 0 {
 			fmt.Printf("Warning: minus!! %d", drvToQ)
