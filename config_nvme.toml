@@ -1,0 +1,41 @@
+Title = "NVMe"
+
+[Parse]
+Printformat = "normal" # normal short custom
+# customformat = ""
+
+# Possible tracepoint list of blktrace API:
+#     queue backmerge frontmerge
+#     getrq sleeprq requeue
+#     issue complete plug
+#     unplugio unplugtimer
+#     insert split bounce remap abort
+#
+# note: drvdata is used for 'custom' points
+
+[TracePoints]
+Enabled = ["queue", "issue", "complete", "drvdata"]
+CustomPoints = [
+    [ "IDH", "Issue to device hardware" ],
+    # [ "tag", "description"]
+]
+
+[Report]
+# fioResultMerge = false
+Read = true
+Write = true
+Others = false
+
+TimeSections = [
+    [ "Q2D", "queue", "IDH" ],
+    [ "D2C", "IDH", "complete" ]
+]
+
+[Report.Numbers]
+Minimum = true
+Maximum = true
+Average = true
+# median = false
+# percentiles = false
+# distribution = false
+

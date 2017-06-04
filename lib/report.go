@@ -25,13 +25,16 @@ func collectRecord(wg *sync.WaitGroup, records chan *BlktraceRecord, stats *Blkt
 }
 
 // Report reads/parses blktrace records and collects statistics data.
-func Report(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
+func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 	var err error
 	var r *BlktraceRecord
 
 	readStats := NewBlktraceStatistics()
 	writeStats := NewBlktraceStatistics()
 
+	tpCfg := NewTracePointsConfig(cfg)
+	rCfg := NewReportConfig(cfg, tpCfg)
+	fmt.Printf("%+v\n", rCfg)
 	/*
 		TODO: Implement config based report
 		[ ] check config

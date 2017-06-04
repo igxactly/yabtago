@@ -28,7 +28,7 @@ func main() {
 
 	// parse arguments
 	arg.MustParse(&args)
-	fmt.Printf("%+v\n", args)
+	// fmt.Printf("%+v\n", args)
 
 	// try to open in/output files
 	fileInput, err := os.Open(args.Input)
@@ -39,14 +39,17 @@ func main() {
 	defer fileInput.Close()
 	reader := bufio.NewReader(fileInput)
 
-	var config *os.File
+	var config *lib.Config
 	if args.Config != "" {
-		config, err = os.Open(args.Config)
+		configFile, err := os.Open(args.Config)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		defer fileInput.Close()
+
+		config = lib.NewConfig(configFile)
+		fmt.Printf("%+v\n\n", config)
 	}
 
 	var writer *bufio.Writer

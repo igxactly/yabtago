@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 )
 
 var u16le = binary.LittleEndian.Uint16
@@ -25,7 +24,7 @@ func printRecords(records chan *BlktraceRecord, finished chan int) {
 }
 
 // Parse reads/parses/shows blktrace records.
-func Parse(input *bufio.Reader, output *bufio.Writer, cfg *os.File) {
+func Parse(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 	var err error
 	var r *BlktraceRecord
 
