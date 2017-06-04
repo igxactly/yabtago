@@ -14,9 +14,9 @@ Printformat = "normal" # normal short custom
 # note: drvdata is used for 'custom' points
 
 [TracePoints]
-Enabled = ["queue", "issue", "complete", "drvdata"]
+Enabled = ["queue", "complete", "drvdata"]
 CustomPoints = [
-    [ "IDH", "Issue to device hardware" ],
+    [ "test", "Issue to device hardware" ],
     # [ "tag", "description"]
 ]
 
@@ -27,8 +27,8 @@ Write = true
 Others = false
 
 TimeSections = [
-    [ "Q2D", "queue", "IDH" ],
-    [ "D2C", "IDH", "complete" ]
+    [ "Q2D", "queue", "test" ],
+    [ "D2C", "test", "complete" ]
 ]
 
 [Report.Numbers]

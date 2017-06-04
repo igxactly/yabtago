@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -24,6 +25,9 @@ func collectRecord(wg *sync.WaitGroup, records chan *BlktraceRecord, stats *Blkt
 	}
 }
 
+var tpConfig *TracePointsConfig
+var rConfig *ReportConfig
+
 // Report reads/parses blktrace records and collects statistics data.
 func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 	var err error
@@ -32,9 +36,9 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 	readStats := NewBlktraceStatistics()
 	writeStats := NewBlktraceStatistics()
 
-	tpCfg := NewTracePointsConfig(cfg)
-	rCfg := NewReportConfig(cfg, tpCfg)
-	fmt.Printf("%+v\n", rCfg)
+	tpConfig = NewTracePointsConfig(cfg)
+	rConfig = NewReportConfig(cfg, tpConfig)
+	fmt.Printf("%+v\n", rConfig)
 	/*
 		TODO: Implement config based report
 		[ ] check config
@@ -179,11 +183,8 @@ func NewBlktraceStatistics() *BlktraceStatistics {
 func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 	var a uint32
 
-	enabledTracepoints := map[uint32]bool{
-		TAQueue:    true,
-		TADrvData:  true,
-		TAComplete: true,
-	}
+	enabledTP := tpConfig.Enabled
+	timeSect := rConfig.TimeSections
 
 	a = r.Action & 0x0000FFFF
 
@@ -192,29 +193,30 @@ func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 		s.traceBatches[r.Sector] = make(map[uint32]*BlktraceRecord)
 	}
 
-	// FIXME: Hardcoded action lists.
-	// FIXME: Move bin/str action representation into a method
-	if _, ok := enabledTracepoints[a]; ok {
+	if _, ok := enabledTP[a]; ok {
+		if a == TADrvData {
+			if aCustom, ok := tpConfig.CustomPoints[strings.Trim(r.PduData, "\x00")]; ok {
+				a = aCustom
+			}
+		}
 		s.traceBatches[r.Sector][a] = r
 	}
 
 	var rGroup map[uint32]*BlktraceRecord
 	rGroup = s.traceBatches[r.Sector]
 
-	// FIXME: Hardcoded action lists.
+	// fmt.Println(len(enabledTracepoints), len(rGroup))
+	// fmt.Printf("%+v\n", enabledTracepoints)
 	var ready bool
-	ready = func() bool { // check if all of three are collected
-		for _, k := range []uint32{TAQueue, TAComplete, TADrvData} {
-			if _, ok := rGroup[k]; !ok {
-				return false
-			}
-		}
-		return true
-	}()
+	if len(rGroup) == (len(enabledTP) - 1 + len(tpConfig.CustomPoints)) {
+		ready = true
+	}
 
 	if ready {
-		drvToQ := rGroup[TADrvData].Time - rGroup[TAQueue].Time
-		cToDrv := rGroup[TAComplete].Time - rGroup[TADrvData].Time
+
+		// #FIXME: Hardcoded action lists.
+		drvToQ := rGroup[timeSect["Q2D"][1]].Time - rGroup[timeSect["Q2D"][0]].Time
+		cToDrv := rGroup[timeSect["D2C"][1]].Time - rGroup[timeSect["D2C"][0]].Time
 
 		if drvToQ < 0 {
 			fmt.Printf("Warning: minus!! %d", drvToQ)

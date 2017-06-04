@@ -87,7 +87,8 @@ func NewTracePointsConfig(cfg *Config) *TracePointsConfig {
 	}
 
 	for i, v := range cfg.TracePoints.CustomPoints {
-		tpCfg.CustomPoints["ytg:"+v[0]] = getNewCustomPointNumber()
+		tpCfg.CustomPoints[v[0]] = getNewCustomPointNumber()
+		// tpCfg.CustomPoints["ytg:"+v[0]] = getNewCustomPointNumber()
 		fmt.Println(i, v)
 	}
 
@@ -108,7 +109,8 @@ func NewReportConfig(cfg *Config, tpCfg *TracePointsConfig) *ReportConfig {
 
 		if u, ok := ActionsMap[v[1]]; ok {
 			a = u
-		} else if u, ok := tpCfg.CustomPoints["ytg:"+v[1]]; ok {
+		} else if u, ok := tpCfg.CustomPoints[v[1]]; ok {
+			// } else if u, ok := tpCfg.CustomPoints["ytg:"+v[1]]; ok {
 			a = u
 		} else {
 
@@ -116,7 +118,8 @@ func NewReportConfig(cfg *Config, tpCfg *TracePointsConfig) *ReportConfig {
 
 		if u, ok := ActionsMap[v[2]]; ok {
 			b = u
-		} else if u, ok := tpCfg.CustomPoints["ytg:"+v[2]]; ok {
+		} else if u, ok := tpCfg.CustomPoints[v[2]]; ok {
+			// } else if u, ok := tpCfg.CustomPoints["ytg:"+v[2]]; ok {
 			b = u
 		} else {
 
