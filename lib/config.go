@@ -2,7 +2,6 @@ package lib
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"os"
 
@@ -81,15 +80,15 @@ func NewTracePointsConfig(cfg *Config) *TracePointsConfig {
 
 	tpCfg.Enabled = make(map[uint32]bool)
 	tpCfg.CustomPoints = make(map[string]uint32)
-	for i, v := range cfg.TracePoints.Enabled {
+	for _, v := range cfg.TracePoints.Enabled {
 		tpCfg.Enabled[ActionsMap[v]] = true
-		fmt.Println(i, v)
+		// fmt.Println(i, v)
 	}
 
-	for i, v := range cfg.TracePoints.CustomPoints {
+	for _, v := range cfg.TracePoints.CustomPoints {
 		tpCfg.CustomPoints[v[0]] = getNewCustomPointNumber()
 		// tpCfg.CustomPoints["ytg:"+v[0]] = getNewCustomPointNumber()
-		fmt.Println(i, v)
+		// fmt.Println(i, v)
 	}
 
 	return tpCfg
@@ -104,7 +103,7 @@ func NewReportConfig(cfg *Config, tpCfg *TracePointsConfig) *ReportConfig {
 	rCfg.Others = cfg.Report.Others
 	rCfg.TimeSections = make(map[string][2]uint32)
 
-	for i, v := range cfg.Report.TimeSections {
+	for _, v := range cfg.Report.TimeSections {
 		var a, b uint32
 
 		if u, ok := ActionsMap[v[1]]; ok {
@@ -126,8 +125,8 @@ func NewReportConfig(cfg *Config, tpCfg *TracePointsConfig) *ReportConfig {
 		}
 
 		rCfg.TimeSections[v[0]] = [2]uint32{a, b}
-		fmt.Println(i, v)
-		fmt.Println(a, b)
+		// fmt.Println(i, v)
+		// fmt.Println(a, b)
 	}
 
 	return rCfg

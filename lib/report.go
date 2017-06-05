@@ -33,30 +33,29 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 	var err error
 	var r *BlktraceRecord
 
-	readStats := NewBlktraceStatistics()
-	writeStats := NewBlktraceStatistics()
-
 	tpConfig = NewTracePointsConfig(cfg)
 	rConfig = NewReportConfig(cfg, tpConfig)
-	fmt.Printf("%+v\n", rConfig)
+	// fmt.Printf("%+v\n", rConfig)
+
+	readStats := NewBlktraceStatistics(rConfig)
+	writeStats := NewBlktraceStatistics(rConfig)
+
 	/*
 		TODO: Implement config based report
-		[ ] check config
-		[ ] create struct for stat collecting
-		[ ] process blktrace records
+		[v] check config
+		[v] create struct for stat collecting
+		[v] process blktrace records
 		[ ] calulate additional numbers
 		[ ] export to csv/json
 	*/
 
 	recordsToPrint := make(chan *BlktraceRecord, 8192)
 	printFinished := make(chan int)
-
 	go printRecords(recordsToPrint, printFinished)
 
+	var wg sync.WaitGroup
 	readRecords := make(chan *BlktraceRecord, 1024)
 	writeRecords := make(chan *BlktraceRecord, 1024)
-	var wg sync.WaitGroup
-
 	wg.Add(1)
 	go collectRecord(&wg, readRecords, readStats)
 	wg.Add(1)
@@ -76,7 +75,7 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 		} else if (r.Action & TCWrite) != 0 {
 			writeRecords <- r
 		} else { // others
-			recordsToPrint <- r
+			// recordsToPrint <- r
 		}
 	}
 
@@ -116,10 +115,10 @@ func Report(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 
 	// CSV
 	stats := []uint64{
-		readStats.totals["DRV-Q"],
-		readStats.totals["C-DRV"],
-		writeStats.totals["DRV-Q"],
-		writeStats.totals["C-DRV"],
+		readStats.totals["Q2D"],
+		readStats.totals["D2C"],
+		writeStats.totals["Q2D"],
+		writeStats.totals["D2C"],
 	}
 
 	statsStr := func() []string {
@@ -161,7 +160,7 @@ type BlktraceStatistics struct {
 }
 
 // NewBlktraceStatistics -
-func NewBlktraceStatistics() *BlktraceStatistics {
+func NewBlktraceStatistics(rCfg *ReportConfig) *BlktraceStatistics {
 	newObj := BlktraceStatistics{numBatches: 0}
 
 	newObj.traceBatches = make(map[uint64]map[uint32]*BlktraceRecord)
@@ -170,12 +169,11 @@ func NewBlktraceStatistics() *BlktraceStatistics {
 	newObj.minimums = make(map[string]uint64)
 	newObj.maximums = make(map[string]uint64)
 
-	newObj.totals["DRV-Q"] = 0
-	newObj.totals["C-DRV"] = 0
-	newObj.minimums["DRV-Q"] = 0
-	newObj.minimums["C-DRV"] = 0
-	newObj.maximums["DRV-Q"] = 0
-	newObj.maximums["C-DRV"] = 0
+	for k := range rCfg.TimeSections {
+		newObj.totals[k] = 0
+		newObj.minimums[k] = 0
+		newObj.maximums[k] = 0
+	}
 	return &newObj
 }
 
@@ -213,41 +211,23 @@ func (s *BlktraceStatistics) AddRecord(r *BlktraceRecord) {
 	}
 
 	if ready {
-
-		// #FIXME: Hardcoded action lists.
-		drvToQ := rGroup[timeSect["Q2D"][1]].Time - rGroup[timeSect["Q2D"][0]].Time
-		cToDrv := rGroup[timeSect["D2C"][1]].Time - rGroup[timeSect["D2C"][0]].Time
-
-		if drvToQ < 0 {
-			fmt.Printf("Warning: minus!! %d", drvToQ)
-			fmt.Printf(r.String())
-		}
-
-		if cToDrv < 0 {
-			fmt.Printf("Warning: minus!! %d", cToDrv)
-			fmt.Printf(r.String())
-		}
-
-		s.totals["DRV-Q"] += drvToQ
-		s.totals["C-DRV"] += cToDrv
-
 		s.numBatches++
+		for k := range timeSect {
+			timeDiff := rGroup[timeSect[k][1]].Time - rGroup[timeSect[k][0]].Time
 
-		// #FIXME: Hardcoded action lists.
-		if (s.minimums["DRV-Q"] == 0) || (s.minimums["DRV-Q"] > drvToQ) {
-			s.minimums["DRV-Q"] = drvToQ
-		}
+			if timeDiff < 0 {
+				fmt.Printf("Warning: minus!! %d", timeDiff)
+			}
 
-		if (s.minimums["C-DRV"] == 0) || (s.minimums["C-DRV"] > cToDrv) {
-			s.minimums["C-DRV"] = cToDrv
-		}
+			s.totals[k] += timeDiff
 
-		if (s.maximums["DRV-Q"] == 0) || (s.maximums["DRV-Q"] < drvToQ) {
-			s.maximums["DRV-Q"] = drvToQ
-		}
-
-		if (s.maximums["C-DRV"] == 0) || (s.maximums["C-DRV"] < cToDrv) {
-			s.maximums["C-DRV"] = cToDrv
+			// #FIXME: Hardcoded stat number field
+			if (s.minimums[k] == 0) || (s.minimums[k] > timeDiff) {
+				s.minimums[k] = timeDiff
+			}
+			if (s.maximums[k] == 0) || (s.maximums[k] > timeDiff) {
+				s.maximums[k] = timeDiff
+			}
 		}
 
 		delete(s.traceBatches, r.Sector)
@@ -261,15 +241,16 @@ func (s *BlktraceStatistics) GetAvg() map[string]float64 {
 	avgs := make(map[string]float64)
 	cnt := s.numBatches
 
+	// #FIXME: Hardcoded field
 	if cnt > 0 {
-		avgDrvToQ = float64(s.totals["DRV-Q"]) / float64(cnt)
-		avgCToDrv = float64(s.totals["C-DRV"]) / float64(cnt)
+		avgDrvToQ = float64(s.totals["Q2D"]) / float64(cnt)
+		avgCToDrv = float64(s.totals["D2C"]) / float64(cnt)
 	} else {
 		avgDrvToQ, avgCToDrv = 0, 0
 	}
 
-	avgs["DRV-Q"] = avgDrvToQ
-	avgs["C-DRV"] = avgCToDrv
+	avgs["Q2D"] = avgDrvToQ
+	avgs["D2C"] = avgCToDrv
 	return avgs
 }
 
@@ -277,13 +258,14 @@ func (s *BlktraceStatistics) GetAvg() map[string]float64 {
 func (s *BlktraceStatistics) String() string {
 	var avgDrvToQ, avgCToDrv float64
 
+	// #FIXME: Hardcoded field
 	if s.numBatches > 0 {
-		avgDrvToQ = float64(s.totals["DRV-Q"]) / float64(s.numBatches)
-		avgCToDrv = float64(s.totals["C-DRV"]) / float64(s.numBatches)
+		avgDrvToQ = float64(s.totals["Q2D"]) / float64(s.numBatches)
+		avgCToDrv = float64(s.totals["D2C"]) / float64(s.numBatches)
 
 		// TODO: rewrite this ugly statement
-		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  avg DRV-Q=%fus C-DRV=%fus\n  min DRV-Q=%fus C-DRV=%fus\n  max DRV-Q=%fus C-DRV=%fus",
-			s.numBatches, float64(avgDrvToQ)/1000.0, float64(avgCToDrv)/1000.0, float64(s.minimums["DRV-Q"])/1000.0, float64(s.minimums["C-DRV"])/1000.0, float64(s.maximums["DRV-Q"])/1000.0, float64(s.maximums["C-DRV"])/1000.0)
+		return fmt.Sprintf("BlktraceStatistics: cnt=%d\n  avg Q2D=%fus D2C=%fus\n  min Q2D=%fus D2C=%fus\n  max Q2D=%fus D2C=%fus",
+			s.numBatches, float64(avgDrvToQ)/1000.0, float64(avgCToDrv)/1000.0, float64(s.minimums["Q2D"])/1000.0, float64(s.minimums["D2C"])/1000.0, float64(s.maximums["Q2D"])/1000.0, float64(s.maximums["D2C"])/1000.0)
 	}
 
 	avgDrvToQ, avgCToDrv = 0, 0

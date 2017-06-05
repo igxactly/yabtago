@@ -39,19 +39,10 @@ func Parse(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
 
 		if !(err == nil) {
 			// TODO: check of any error occured while reading record.
-
 			// if err is not eof error {
 			// 	fmt.Println("parse(): something went wrong while reading blktrace record")
 			// }
 			break
-		}
-
-		if (r.Action & TCRead) != 0 {
-
-		} else if (r.Action & TCWrite) != 0 {
-
-		} else { // others
-
 		}
 
 		recordsToPrint <- r
@@ -71,7 +62,8 @@ func ReadBlktraceRecord(reader io.Reader) (r *BlktraceRecord, err error) {
 	}
 
 	getField := func(field int) []byte {
-		return buf[btFieldOffset[field]:btFieldOffset[field+1]]
+		fo := &btFieldOffset
+		return buf[fo[field]:fo[field+1]]
 	}
 
 	r = new(BlktraceRecord)
