@@ -24,10 +24,11 @@ func printRecords(records chan *BlktraceRecord, finished chan int) {
 }
 
 // Parse reads/parses/shows blktrace records.
-func Parse(input *bufio.Reader, output *bufio.Writer, cfg *Config) {
+func Parse(input *bufio.Reader, output *bufio.Writer, cfg *Config, outFmt string) {
 	var err error
 	var r *BlktraceRecord
 
+	// TODO: Use config in parse
 	recordsToPrint := make(chan *BlktraceRecord, 8192)
 	printFinished := make(chan int)
 

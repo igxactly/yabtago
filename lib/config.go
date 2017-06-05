@@ -44,8 +44,21 @@ func NewConfig(f *os.File) *Config {
 }
 
 // DefaultConfig creates a default config instance.
-func DefaultConfig(f *os.File) *Config {
+func DefaultConfig() *Config {
 	var cfg = new(Config)
+
+	cfg.Parse.PrintFormat = "normal"
+
+	cfg.TracePoints.Enabled = []string{"queue", "complete"}
+
+	cfg.Report.Read = true
+	cfg.Report.Write = true
+	cfg.Report.Numbers.Average = true
+	cfg.Report.Numbers.Minimum = true
+	cfg.Report.Numbers.Maximum = true
+
+	cfg.Report.TimeSections = [][3]string{{"Q2C", "queue", "complete"}}
+
 	return cfg
 }
 
@@ -80,15 +93,12 @@ func NewTracePointsConfig(cfg *Config) *TracePointsConfig {
 
 	tpCfg.Enabled = make(map[uint32]bool)
 	tpCfg.CustomPoints = make(map[string]uint32)
+
 	for _, v := range cfg.TracePoints.Enabled {
 		tpCfg.Enabled[ActionsMap[v]] = true
-		// fmt.Println(i, v)
 	}
-
 	for _, v := range cfg.TracePoints.CustomPoints {
 		tpCfg.CustomPoints[v[0]] = getNewCustomPointNumber()
-		// tpCfg.CustomPoints["ytg:"+v[0]] = getNewCustomPointNumber()
-		// fmt.Println(i, v)
 	}
 
 	return tpCfg
@@ -109,24 +119,17 @@ func NewReportConfig(cfg *Config, tpCfg *TracePointsConfig) *ReportConfig {
 		if u, ok := ActionsMap[v[1]]; ok {
 			a = u
 		} else if u, ok := tpCfg.CustomPoints[v[1]]; ok {
-			// } else if u, ok := tpCfg.CustomPoints["ytg:"+v[1]]; ok {
 			a = u
 		} else {
-
 		}
-
 		if u, ok := ActionsMap[v[2]]; ok {
 			b = u
 		} else if u, ok := tpCfg.CustomPoints[v[2]]; ok {
-			// } else if u, ok := tpCfg.CustomPoints["ytg:"+v[2]]; ok {
 			b = u
 		} else {
-
 		}
 
 		rCfg.TimeSections[v[0]] = [2]uint32{a, b}
-		// fmt.Println(i, v)
-		// fmt.Println(a, b)
 	}
 
 	return rCfg

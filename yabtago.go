@@ -49,7 +49,8 @@ func main() {
 		defer fileInput.Close()
 
 		config = lib.NewConfig(configFile)
-		fmt.Printf("%+v\n\n", config)
+	} else {
+		config = lib.DefaultConfig()
 	}
 
 	var writer *bufio.Writer
@@ -65,10 +66,10 @@ func main() {
 
 	switch args.Action {
 	case "parse":
-		lib.Parse(reader, writer, config)
+		lib.Parse(reader, writer, config, args.OutFormat)
 		break
 	case "report":
-		lib.Report(reader, writer, config)
+		lib.Report(reader, writer, config, args.OutFormat)
 		break
 	default:
 		fmt.Println("undefined action '" + args.Action + "'")

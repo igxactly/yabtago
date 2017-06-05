@@ -1,17 +1,7 @@
 Title = "NVMe"
 
 [Parse]
-Printformat = "normal" # normal short custom
-# customformat = ""
-
-# Possible tracepoint list of blktrace API:
-#     queue backmerge frontmerge
-#     getrq sleeprq requeue
-#     issue complete plug
-#     unplugio unplugtimer
-#     insert split bounce remap abort
-#
-# note: drvdata is used for 'custom' points
+PrintFormat = "normal" # normal short custom
 
 [TracePoints]
 Enabled = ["queue", "complete", "drvdata"]
@@ -21,21 +11,17 @@ CustomPoints = [
 ]
 
 [Report]
-# fioResultMerge = false
 Read = true
 Write = true
 Others = false
 
 TimeSections = [
-    [ "Q2D", "queue", "test" ],
-    [ "D2C", "test", "complete" ]
+    [ "Q2N", "queue", "test" ],
+    [ "N2C", "test", "complete" ]
 ]
 
 [Report.Numbers]
 Minimum = true
 Maximum = true
 Average = true
-# median = false
-# percentiles = false
-# distribution = false
 

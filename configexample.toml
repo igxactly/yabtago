@@ -1,9 +1,8 @@
-[yabtago]
-configtitle = "example"
+Title = "NVMe"
 
-[parse]
-printformat = "normal" # normal short custom
-# customformat = ""
+[Parse]
+PrintFormat = "normal" # normal short custom
+# CustomFormat = ""
 
 # Possible tracepoint list of blktrace API:
 #     queue backmerge frontmerge
@@ -14,35 +13,31 @@ printformat = "normal" # normal short custom
 #
 # note: drvdata is used for 'custom' points
 
-[tracePoints.blktraceAPI]
-enabled = ["queue", "issue", "complete"]
-
-[tracePoints.custom]
-enableDrvdata = true
-list = [
+[TracePoints]
+Enabled = ["queue", "complete", "drvdata"]
+CustomPoints = [
     [ "IDH", "Issue to device hardware" ],
     [ "RDH", "Response from device hardware" ],
     # [ "tag", "description"]
 ]
 
-[report]
+[Report]
 # fioResultMerge = false
-read = true
-write = true
-others = false
+Read = true
+Write = true
+Others = false
 
-[report.numbers]
-minimum = true
-maximum = true
-average = true
-# median = false
-# percentiles = false
-# distribution = false
-
-[report.timeSections]
-list = [
+TimeSections = [
     [ "Q2I", "queue", "issue" ],
     [ "I2D", "issue", "IDH" ],
     [ "D2D", "IDH", "RDH" ],
     [ "D2C", "RDH", "complete" ]
 ]
+
+[Report.Numbers]
+Minimum = true
+Maximum = true
+Average = true
+# Median = false
+# Percentiles = false
+# Distribution = false
